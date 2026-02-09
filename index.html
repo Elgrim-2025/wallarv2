@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canny + Bilateral + Texture Edge</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@300;500;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --bg:#08080c;--sf:#101018;--bd:#1c1c2c;
+            --ac:#00e5a0;--tx:#d8d8e4;--txd:#5c5c74;--warn:#ff4466;--ac2:#ff9f43;
+        }
+        body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+        .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--bd);background:var(--sf)}
+        .hd h1{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ac)}
+        .hd .badges{display:flex;gap:8px}
+        .hd .tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 9px;border:1px solid var(--ac);border-radius:20px;color:var(--ac)}
+        .hd .tag.v2{border-color:var(--ac2);color:var(--ac2)}
+        .app{display:flex;height:calc(100vh - 45px)}
+        .view{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:6px;min-width:0}
+        .cell{position:relative;background:var(--sf);border:1px solid var(--bd);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+        .cell video,.cell canvas{display:block;width:100%;height:100%;object-fit:contain}
+        .cell .lb{position:absolute;top:6px;left:6px;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;padding:2px 7px;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);border-radius:4px;color:var(--ac);z-index:2}
+        .cell .fps{position:absolute;top:6px;right:6px;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;background:rgba(0,0,0,.75);border-radius:4px;color:var(--txd);z-index:2}
+        .cell .ph{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txd)}
+        .cell .seed-dot{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;box-shadow:0 0 6px rgba(0,0,0,.6)}
+        .sb{width:290px;flex-shrink:0;background:var(--sf);border-left:1px solid var(--bd);padding:16px 14px;overflow-y:auto}
+        .sb section{margin-bottom:18px}
+        .sb section h3{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--txd);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--bd)}
+        .btn{width:100%;padding:10px;border:none;border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:filter .15s}
+        .btn:hover{filter:brightness(1.1)}
+        .btn-go{background:var(--ac);color:var(--bg)}
+        .btn-stop{background:var(--warn);color:#fff}
+        .sg{margin-bottom:10px}
+        .sg label{display:flex;justify-content:space-between;font-size:11px;font-weight:500;margin-bottom:4px}
+        .sg label .v{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ac)}
+        input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--bd);border-radius:2px;outline:none}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ac);cursor:pointer}
+        .tgl-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+        .tgl-row span{font-size:11px;font-weight:500}
+        .tgl{width:38px;height:20px;background:var(--bd);border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
+        .tgl.on{background:var(--ac)}
+        .tgl::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+        .tgl.on::after{transform:translateX(18px)}
+        .color-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .color-row input[type=color]{width:36px;height:26px;border:1px solid var(--bd);border-radius:5px;background:var(--sf);cursor:pointer;padding:0}
+        .color-row .clbl{font-size:11px;font-weight:500}
+        .pipe{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txd);line-height:1.9;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px}
+        .pipe .s{color:var(--ac);font-weight:700}
+        .pipe .new{color:var(--ac2);font-weight:700}
+        .info-box{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txd);padding:6px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:5px;margin-top:6px}
+        .perf-box{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--txd);padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;line-height:1.8}
+        .perf-box .metric{display:flex;justify-content:space-between}
+        .perf-box .metric .val{color:var(--ac);font-weight:600}
+        .ov{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;transition:opacity .4s}
+        .ov.gone{opacity:0;pointer-events:none}
+        .ld{width:32px;height:32px;border:3px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:sp .7s linear infinite}
+        @keyframes sp{to{transform:rotate(360deg)}}
+        .ov p{margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ac)}
+        @media(max-width:860px){
+            .app{flex-direction:column}
+            .sb{width:100%;border-left:none;border-top:1px solid var(--bd);max-height:50vh}
+            .view{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr)}
+        }
+    </style>
+</head>
+<body>
+
+<div class="ov" id="ov"><div class="ld"></div><p>OpenCV.js 로딩 중…</p></div>
+
+<div class="hd">
+    <h1>CANNY + BILATERAL + TEXTURE</h1>
+    <div class="badges">
+        <span class="tag v2">V2</span>
+        <span class="tag">REAL-TIME</span>
+    </div>
+</div>
+
+<div class="app">
+    <div class="view">
+        <div class="cell">
+            <span class="lb">01 · ORIGINAL</span>
+            <video id="vid" autoplay playsinline muted></video>
+            <span class="ph" id="ph">카메라 대기 중</span>
+        </div>
+        <div class="cell">
+            <span class="lb">02 · EDGE MAP</span>
+            <canvas id="cvEdge"></canvas>
+        </div>
+        <div class="cell">
+            <span class="lb">03 · FILL MASK</span>
+            <canvas id="cvMask"></canvas>
+        </div>
+        <div class="cell" id="resultCell">
+            <span class="lb">04 · RESULT (클릭으로 영역 선택)</span>
+            <span class="fps" id="fpsEl">-- fps</span>
+            <canvas id="cvResult"></canvas>
+            <div class="seed-dot" id="seedDot" style="display:none"></div>
+        </div>
+    </div>
+
+    <div class="sb">
+        <section>
+            <button class="btn btn-go" id="camBtn" onclick="toggleCam()">▶ 카메라 시작</button>
+        </section>
+
+        <section>
+            <h3>Performance</h3>
+            <div class="perf-box" id="perfBox">
+                <div class="metric"><span>Edge 처리</span><span class="val" id="pEdge">--</span></div>
+                <div class="metric"><span>Texture</span><span class="val" id="pTex">--</span></div>
+                <div class="metric"><span>Flood Fill</span><span class="val" id="pFill">--</span></div>
+                <div class="metric"><span>Compositing</span><span class="val" id="pComp">--</span></div>
+                <div class="metric"><span>총 프레임</span><span class="val" id="pTotal">--</span></div>
+            </div>
+        </section>
+
+        <section>
+            <h3>Pipeline V2</h3>
+            <div class="pipe">
+                <div><span class="s">1</span> <span class="new">Bilateral Filter</span> (엣지 보존 블러)</div>
+                <div><span class="s">2</span> Gray + S채널 → Canny (L2)</div>
+                <div><span class="s">3</span> <span class="new">텍스처 분산 엣지</span> (LBP 기반)</div>
+                <div><span class="s">4</span> <span class="new">멀티스케일 Canny</span> 합성</div>
+                <div><span class="s">5</span> bitwise OR → 합성 엣지</div>
+                <div><span class="s">6</span> MORPH_CLOSE → 틈 메꿈</div>
+                <div><span class="s">7</span> BFS Flood Fill</div>
+                <div><span class="s">8</span> 원본 + 알파 블렌딩</div>
+            </div>
+        </section>
+
+        <!-- Flood Fill -->
+        <section>
+            <h3>Flood Fill</h3>
+            <div class="color-row">
+                <span class="clbl">채우기 색상</span>
+                <input type="color" id="fillColor" value="#4488ff">
+            </div>
+            <div class="sg">
+                <label>알파 (투명도) <span class="v" id="vAlpha">0.4</span></label>
+                <input type="range" id="rAlpha" min="0.1" max="0.9" step="0.05" value="0.4"
+                       oninput="document.getElementById('vAlpha').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>마스크 팽창 (px) <span class="v" id="vMaskDilate">5</span></label>
+                <input type="range" id="rMaskDilate" min="0" max="15" step="1" value="5"
+                       oninput="document.getElementById('vMaskDilate').textContent=this.value">
+            </div>
+            <div class="info-box" id="fillInfo">채워진 면적: --</div>
+        </section>
+
+        <!-- Bilateral Filter (NEW) -->
+        <section>
+            <h3>Bilateral Filter ✦</h3>
+            <div class="tgl-row">
+                <span>활성화 (Gaussian 대체)</span>
+                <div class="tgl on" id="tBilateral" onclick="flip('bilateral')"></div>
+            </div>
+            <div class="sg">
+                <label>d (이웃 지름) <span class="v" id="vBd">7</span></label>
+                <input type="range" id="rBd" min="3" max="15" step="2" value="7"
+                       oninput="document.getElementById('vBd').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>sigmaColor <span class="v" id="vBsc">50</span></label>
+                <input type="range" id="rBsc" min="10" max="150" step="5" value="50"
+                       oninput="document.getElementById('vBsc').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>sigmaSpace <span class="v" id="vBss">50</span></label>
+                <input type="range" id="rBss" min="10" max="150" step="5" value="50"
+                       oninput="document.getElementById('vBss').textContent=this.value">
+            </div>
+        </section>
+
+        <!-- Texture Edge (NEW) -->
+        <section>
+            <h3>텍스처 분산 엣지 ✦</h3>
+            <div class="tgl-row">
+                <span>활성화</span>
+                <div class="tgl on" id="tTexture" onclick="flip('texture')"></div>
+            </div>
+            <div class="sg">
+                <label>블록 크기 <span class="v" id="vTexBlock">7</span></label>
+                <input type="range" id="rTexBlock" min="3" max="15" step="2" value="7"
+                       oninput="document.getElementById('vTexBlock').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>분산 임계값 <span class="v" id="vTexThresh">25</span></label>
+                <input type="range" id="rTexThresh" min="5" max="100" step="5" value="25"
+                       oninput="document.getElementById('vTexThresh').textContent=this.value">
+            </div>
+        </section>
+
+        <!-- Multi-scale Canny (NEW) -->
+        <section>
+            <h3>멀티스케일 Canny ✦</h3>
+            <div class="tgl-row">
+                <span>활성화</span>
+                <div class="tgl on" id="tMultiScale" onclick="flip('multiScale')"></div>
+            </div>
+            <div class="sg">
+                <label>Fine 스케일 blur <span class="v" id="vMsFine">3</span></label>
+                <input type="range" id="rMsFine" min="1" max="7" step="2" value="3"
+                       oninput="document.getElementById('vMsFine').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>Coarse 스케일 blur <span class="v" id="vMsCoarse">11</span></label>
+                <input type="range" id="rMsCoarse" min="7" max="21" step="2" value="11"
+                       oninput="document.getElementById('vMsCoarse').textContent=this.value">
+            </div>
+        </section>
+
+        <!-- Edge Channels -->
+        <section>
+            <h3>엣지 채널 선택</h3>
+            <div class="tgl-row">
+                <span>Gray (밝기)</span>
+                <div class="tgl on" id="tGray" onclick="flip('gray')"></div>
+            </div>
+            <div class="tgl-row">
+                <span>H - Hue (색상)</span>
+                <div class="tgl" id="tHue" onclick="flip('hue')"></div>
+            </div>
+            <div class="tgl-row">
+                <span>S - Saturation (채도)</span>
+                <div class="tgl on" id="tSat" onclick="flip('sat')"></div>
+            </div>
+        </section>
+
+        <!-- Gaussian Blur (fallback) -->
+        <section>
+            <h3>Gaussian Blur (Bilateral OFF 시)</h3>
+            <div class="sg">
+                <label>kernelSize <span class="v" id="vBk">7</span></label>
+                <input type="range" id="rBk" min="1" max="15" step="2" value="7"
+                       oninput="document.getElementById('vBk').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>sigma <span class="v" id="vSig">0.6</span></label>
+                <input type="range" id="rSig" min="0" max="5" step="0.1" value="0.6"
+                       oninput="document.getElementById('vSig').textContent=this.value">
+            </div>
+        </section>
+
+        <!-- Canny -->
+        <section>
+            <h3>Canny Threshold</h3>
+            <div class="sg">
+                <label>threshold1 (low) <span class="v" id="vLo">30</span></label>
+                <input type="range" id="rLo" min="0" max="255" value="30"
+                       oninput="document.getElementById('vLo').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>threshold2 (high) <span class="v" id="vHi">70</span></label>
+                <input type="range" id="rHi" min="0" max="255" value="70"
+                       oninput="document.getElementById('vHi').textContent=this.value">
+            </div>
+            <div class="sg">
+                <label>apertureSize <span class="v" id="vAp">3</span></label>
+                <input type="range" id="rAp" min="3" max="7" step="2" value="3"
+                       oninput="document.getElementById('vAp').textContent=this.value">
+            </div>
+            <div class="tgl-row">
+                <span>L2gradient</span>
+                <div class="tgl on" id="tL2" onclick="flip('l2')"></div>
+            </div>
+        </section>
+
+        <!-- Post-process -->
+        <section>
+            <h3>후처리</h3>
+            <div class="tgl-row">
+                <span>MORPH_CLOSE (틈 메꿈)</span>
+                <div class="tgl on" id="tClose" onclick="flip('close')"></div>
+            </div>
+            <div class="sg">
+                <label>close kernelSize <span class="v" id="vCk">9</span></label>
+                <input type="range" id="rCk" min="3" max="15" step="2" value="9"
+                       oninput="document.getElementById('vCk').textContent=this.value">
+            </div>
+            <div class="tgl-row">
+                <span>Dilate (추가 팽창)</span>
+                <div class="tgl" id="tDil" onclick="flip('dilate')"></div>
+            </div>
+            <div class="sg">
+                <label>dilate kernelSize <span class="v" id="vMk">3</span></label>
+                <input type="range" id="rMk" min="1" max="7" step="2" value="3"
+                       oninput="document.getElementById('vMk').textContent=this.value">
+            </div>
+        </section>
+
+        <section>
+            <h3>프레임 최적화</h3>
+            <div class="sg">
+                <label>처리 해상도 비율 <span class="v" id="vScale">1.0</span></label>
+                <input type="range" id="rScale" min="0.25" max="1.0" step="0.05" value="1.0"
+                       oninput="document.getElementById('vScale').textContent=this.value">
+            </div>
+            <div class="tgl-row">
+                <span>프레임 스킵 (매 2프레임)</span>
+                <div class="tgl" id="tSkip" onclick="flip('skip')"></div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    /* ═══════════════════════════════════════
+       State
+       ═══════════════════════════════════════ */
+    let running = false, raf = null;
+    const opt = {
+        gray: true, hue: false, sat: true,
+        l2: true,
+        close: true, dilate: false,
+        skip: false,
+        bilateral: true,    // NEW: Bilateral Filter
+        texture: true,       // NEW: 텍스처 분산 엣지
+        multiScale: true,    // NEW: 멀티스케일 Canny
+    };
+    let fC = 0, fT = performance.now();
+    let seedX = -1, seedY = -1;
+    let capCvs = null, capCtx = null;
+    let frameCount = 0;
+
+    // ═══ Mat pool ═══
+    let matPool = null;
+    let poolW = 0, poolH = 0;
+
+    function initPool(w, h) {
+        if (matPool && poolW === w && poolH === h) return;
+        destroyPool();
+        poolW = w; poolH = h;
+        matPool = {
+            src: new cv.Mat(h, w, cv.CV_8UC4),
+            gray: new cv.Mat(h, w, cv.CV_8UC1),
+            blurredG: new cv.Mat(h, w, cv.CV_8UC1),
+            edgeGray: new cv.Mat(h, w, cv.CV_8UC1),
+            rgb: new cv.Mat(h, w, cv.CV_8UC3),
+            hsv: new cv.Mat(h, w, cv.CV_8UC3),
+            sCh: new cv.Mat(h, w, cv.CV_8UC1),
+            blurredS: new cv.Mat(h, w, cv.CV_8UC1),
+            edgeS: new cv.Mat(h, w, cv.CV_8UC1),
+            combined: new cv.Mat(h, w, cv.CV_8UC1),
+            finalEdge: new cv.Mat(h, w, cv.CV_8UC1),
+            // Bilateral output
+            bilateralOut: new cv.Mat(h, w, cv.CV_8UC1),
+            bilateralOutS: new cv.Mat(h, w, cv.CV_8UC1),
+            // Multi-scale
+            msFine: new cv.Mat(h, w, cv.CV_8UC1),
+            msCoarse: new cv.Mat(h, w, cv.CV_8UC1),
+            msEdgeFine: new cv.Mat(h, w, cv.CV_8UC1),
+            msEdgeCoarse: new cv.Mat(h, w, cv.CV_8UC1),
+            // Texture
+            texVariance: new cv.Mat(h, w, cv.CV_8UC1),
+            texEdge: new cv.Mat(h, w, cv.CV_8UC1),
+            // Local mean/sqmean for texture variance
+            meanMat: new cv.Mat(h, w, cv.CV_32FC1),
+            sqMeanMat: new cv.Mat(h, w, cv.CV_32FC1),
+            grayF: new cv.Mat(h, w, cv.CV_32FC1),
+            graySq: new cv.Mat(h, w, cv.CV_32FC1),
+            varMat: new cv.Mat(h, w, cv.CV_32FC1),
+            // Hue (lazy)
+            hCh: null, blurredH: null, edgeH: null,
+            // Mask dilate
+            maskMat: new cv.Mat(h, w, cv.CV_8UC1),
+            maskDilated: new cv.Mat(h, w, cv.CV_8UC1),
+        };
+    }
+
+    function destroyPool() {
+        if (!matPool) return;
+        for (const k in matPool) {
+            if (matPool[k] && matPool[k].delete) {
+                try { matPool[k].delete(); } catch(_){}
+            }
+        }
+        matPool = null; poolW = poolH = 0;
+    }
+
+    function ensureHueMats(h, w) {
+        if (!matPool.hCh) {
+            matPool.hCh = new cv.Mat(h, w, cv.CV_8UC1);
+            matPool.blurredH = new cv.Mat(h, w, cv.CV_8UC1);
+            matPool.edgeH = new cv.Mat(h, w, cv.CV_8UC1);
+        }
+    }
+
+    // ═══ BFS buffers ═══
+    let bfsQueue = null, bfsMask = null, bfsBufSize = 0;
+    function ensureBFS(size) {
+        if (bfsBufSize >= size) return;
+        bfsQueue = new Int32Array(size);
+        bfsMask = new Uint8Array(size);
+        bfsBufSize = size;
+    }
+
+    const tglMap = {
+        gray:'tGray', hue:'tHue', sat:'tSat', l2:'tL2',
+        close:'tClose', dilate:'tDil', skip:'tSkip',
+        bilateral:'tBilateral', texture:'tTexture', multiScale:'tMultiScale'
+    };
+    function flip(k) { opt[k]=!opt[k]; document.getElementById(tglMap[k]).classList.toggle('on'); }
+    function gv(id) { return parseFloat(document.getElementById(id).value); }
+    function gi(id) { return parseInt(document.getElementById(id).value); }
+
+    /* ═══════════════════════════════════════
+       Click → seed
+       ═══════════════════════════════════════ */
+    document.getElementById('cvResult').addEventListener('click', function(e) {
+        if (!running) return;
+        const rect = this.getBoundingClientRect();
+        seedX = Math.round((e.clientX - rect.left) * (this.width / rect.width));
+        seedY = Math.round((e.clientY - rect.top) * (this.height / rect.height));
+        const dot = document.getElementById('seedDot');
+        dot.style.display = 'block';
+        const pr = document.getElementById('resultCell').getBoundingClientRect();
+        dot.style.left = (e.clientX - pr.left) + 'px';
+        dot.style.top = (e.clientY - pr.top) + 'px';
+        dot.style.borderColor = document.getElementById('fillColor').value;
+    });
+
+    /* ═══════════════════════════════════════
+       BFS Flood Fill
+       ═══════════════════════════════════════ */
+    function bfsFloodFill(edgeArr, w, h, sx, sy) {
+        const size = w * h;
+        ensureBFS(size);
+        const mask = bfsMask, queue = bfsQueue;
+        mask.fill(0);
+        if (sx<0||sy<0||sx>=w||sy>=h) return mask;
+        const si = sy*w+sx;
+        if (edgeArr[si]===255) return mask;
+        let head=0, tail=0;
+        queue[tail++]=si; mask[si]=255;
+        while(head<tail){
+            const idx=queue[head++], x=idx%w, y=(idx-x)/w;
+            let n;
+            if(x>0){n=idx-1;if(!mask[n]&&!edgeArr[n]){mask[n]=255;queue[tail++]=n;}}
+            if(x<w-1){n=idx+1;if(!mask[n]&&!edgeArr[n]){mask[n]=255;queue[tail++]=n;}}
+            if(y>0){n=idx-w;if(!mask[n]&&!edgeArr[n]){mask[n]=255;queue[tail++]=n;}}
+            if(y<h-1){n=idx+w;if(!mask[n]&&!edgeArr[n]){mask[n]=255;queue[tail++]=n;}}
+        }
+        return mask;
+    }
+
+    /* ═══════════════════════════════════════
+       Camera
+       ═══════════════════════════════════════ */
+    async function toggleCam() {
+        if (running) return stopCam();
+        const video = document.getElementById('vid');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}}
+            });
+            video.srcObject = stream;
+            await video.play();
+            await new Promise(r=>{const ck=()=>video.videoWidth>0?r():requestAnimationFrame(ck);ck();});
+        } catch(e) { return alert('카메라 오류: '+e.message); }
+        running = true; frameCount = 0;
+        document.getElementById('ph').style.display = 'none';
+        const b = document.getElementById('camBtn');
+        b.textContent='■ 정지'; b.className='btn btn-stop';
+        capCvs = document.createElement('canvas');
+        capCtx = capCvs.getContext('2d',{willReadFrequently:true});
+        loop();
+    }
+    function stopCam() {
+        running=false; seedX=seedY=-1;
+        document.getElementById('seedDot').style.display='none';
+        if(raf){cancelAnimationFrame(raf);raf=null;}
+        const vd=document.getElementById('vid');
+        if(vd.srcObject){vd.srcObject.getTracks().forEach(t=>t.stop());vd.srcObject=null;}
+        document.getElementById('ph').style.display='';
+        const b=document.getElementById('camBtn');
+        b.textContent='▶ 카메라 시작';b.className='btn btn-go';
+        destroyPool();
+    }
+
+    /* ═══════════════════════════════════════
+       Perf
+       ═══════════════════════════════════════ */
+    const perfAvg = {edge:[],tex:[],fill:[],comp:[]};
+    const PERF_WINDOW = 30;
+    function addPerf(k,ms){const a=perfAvg[k];a.push(ms);if(a.length>PERF_WINDOW)a.shift();}
+    function getPerf(k){const a=perfAvg[k];if(!a.length)return'--';return(a.reduce((s,v)=>s+v,0)/a.length).toFixed(1)+'ms';}
+
+    /* ═══════════════════════════════════════
+       TEXTURE VARIANCE EDGE
+       로컬 분산을 계산해서 텍스처 변화 경계를 검출
+       variance = E[X²] - E[X]²
+       분산 변화의 gradient → 텍스처 경계
+       ═══════════════════════════════════════ */
+    function computeTextureEdge(P, blockSize, threshold) {
+        // gray → float
+        P.gray.convertTo(P.grayF, cv.CV_32FC1);
+
+        // squared
+        cv.multiply(P.grayF, P.grayF, P.graySq);
+
+        // local mean
+        const ksize = new cv.Size(blockSize, blockSize);
+        cv.blur(P.grayF, P.meanMat, ksize);
+        cv.blur(P.graySq, P.sqMeanMat, ksize);
+
+        // variance = E[X²] - E[X]²
+        cv.multiply(P.meanMat, P.meanMat, P.varMat); // E[X]²
+        cv.subtract(P.sqMeanMat, P.varMat, P.varMat); // variance
+
+        // variance → 8UC1 for Canny
+        P.varMat.convertTo(P.texVariance, cv.CV_8UC1, 1.0, 0);
+
+        // Canny on variance map → 텍스처 변화 경계
+        cv.Canny(P.texVariance, P.texEdge, threshold, threshold * 2, 3, false);
+
+        return P.texEdge;
+    }
+
+    /* ═══════════════════════════════════════
+       MULTI-SCALE CANNY
+       Fine(작은 블러) + Coarse(큰 블러) 합성
+       → 미세 경계 + 구조적 경계 동시 검출
+       ═══════════════════════════════════════ */
+    function multiScaleCanny(P, input, lo, hi, ap, l2, fineK, coarseK) {
+        // Fine scale: 작은 블러 → 미세한 엣지
+        cv.GaussianBlur(input, P.msFine, new cv.Size(fineK, fineK), 0);
+        cv.Canny(P.msFine, P.msEdgeFine, lo, hi, ap, l2);
+
+        // Coarse scale: 큰 블러 → 구조적 엣지 (노이즈 제거됨)
+        cv.GaussianBlur(input, P.msCoarse, new cv.Size(coarseK, coarseK), 0);
+        cv.Canny(P.msCoarse, P.msEdgeCoarse, lo * 0.7, hi * 0.7, ap, l2);
+
+        // OR 합성
+        const result = P.msEdgeFine;
+        cv.bitwise_or(P.msEdgeFine, P.msEdgeCoarse, result);
+        return result;
+    }
+
+    /* ═══════════════════════════════════════
+       Main Loop — V2
+       ═══════════════════════════════════════ */
+    function loop() {
+        if (!running) return;
+        const video = document.getElementById('vid');
+        const W = video.videoWidth, H = video.videoHeight;
+        if (!W||!H) { raf=requestAnimationFrame(loop); return; }
+
+        frameCount++;
+        if (opt.skip && frameCount%2!==0) { raf=requestAnimationFrame(loop); return; }
+
+        const tFrameStart = performance.now();
+        const scale = gv('rScale');
+        const PW = Math.round(W*scale), PH = Math.round(H*scale);
+
+        for (const id of ['cvEdge','cvMask','cvResult']) {
+            const c=document.getElementById(id);
+            if(c.width!==W)c.width=W; if(c.height!==H)c.height=H;
+        }
+        capCvs.width=W; capCvs.height=H;
+        initPool(PW, PH);
+
+        // Params
+        const bk=gi('rBk'), sigma=gv('rSig');
+        const lo=gi('rLo'), hi=gi('rHi'), ap=gi('rAp');
+        const ck=gi('rCk'), mk=gi('rMk');
+        const alpha=gv('rAlpha');
+        const fillHex=document.getElementById('fillColor').value;
+        const fR=parseInt(fillHex.slice(1,3),16);
+        const fG=parseInt(fillHex.slice(3,5),16);
+        const fB=parseInt(fillHex.slice(5,7),16);
+
+        // Bilateral params
+        const bd=gi('rBd'), bsc=gi('rBsc'), bss=gi('rBss');
+        // Texture params
+        const texBlock=gi('rTexBlock'), texThresh=gi('rTexThresh');
+        // Multi-scale params
+        const msFine=gi('rMsFine'), msCoarse=gi('rMsCoarse');
+
+        capCtx.drawImage(video,0,0,W,H);
+        const frameData = capCtx.getImageData(0,0,W,H);
+
+        const tempMats = [];
+        const tm = (mat)=>{tempMats.push(mat);return mat;};
+
+        try {
+            const P = matPool;
+            let processW, processH;
+
+            if (scale < 1.0) {
+                const fullSrc=tm(new cv.Mat(H,W,cv.CV_8UC4));
+                fullSrc.data.set(frameData.data);
+                cv.resize(fullSrc,P.src,new cv.Size(PW,PH),0,0,cv.INTER_AREA);
+                processW=PW; processH=PH;
+            } else {
+                P.src.data.set(frameData.data);
+                processW=W; processH=H;
+            }
+
+            const tEdgeStart = performance.now();
+
+            // ══ GRAY channel ══
+            if (opt.gray) {
+                cv.cvtColor(P.src, P.gray, cv.COLOR_RGBA2GRAY);
+
+                // Blur 선택: Bilateral vs Gaussian
+                if (opt.bilateral) {
+                    cv.bilateralFilter(P.gray, P.bilateralOut, bd, bsc, bss);
+                    // Multi-scale or single Canny
+                    if (opt.multiScale) {
+                        multiScaleCanny(P, P.bilateralOut, lo, hi, ap, opt.l2, msFine, msCoarse);
+                        P.msEdgeFine.copyTo(P.edgeGray);
+                    } else {
+                        cv.Canny(P.bilateralOut, P.edgeGray, lo, hi, ap, opt.l2);
+                    }
+                } else {
+                    cv.GaussianBlur(P.gray, P.blurredG, new cv.Size(bk,bk), sigma);
+                    if (opt.multiScale) {
+                        multiScaleCanny(P, P.gray, lo, hi, ap, opt.l2, msFine, msCoarse);
+                        P.msEdgeFine.copyTo(P.edgeGray);
+                    } else {
+                        cv.Canny(P.blurredG, P.edgeGray, lo, hi, ap, opt.l2);
+                    }
+                }
+            } else {
+                P.edgeGray.setTo(new cv.Scalar(0));
+            }
+
+            // ══ HSV channels ══
+            if (opt.sat || opt.hue) {
+                cv.cvtColor(P.src, P.rgb, cv.COLOR_RGBA2RGB);
+                cv.cvtColor(P.rgb, P.hsv, cv.COLOR_RGB2HSV);
+                const channels = tm(new cv.MatVector());
+                cv.split(P.hsv, channels);
+
+                if (opt.sat) {
+                    channels.get(1).copyTo(P.sCh);
+                    if (opt.bilateral) {
+                        cv.bilateralFilter(P.sCh, P.bilateralOutS, bd, bsc, bss);
+                        cv.Canny(P.bilateralOutS, P.edgeS, lo, hi, ap, opt.l2);
+                    } else {
+                        cv.GaussianBlur(P.sCh, P.blurredS, new cv.Size(bk,bk), sigma);
+                        cv.Canny(P.blurredS, P.edgeS, lo, hi, ap, opt.l2);
+                    }
+                } else {
+                    P.edgeS.setTo(new cv.Scalar(0));
+                }
+
+                if (opt.hue) {
+                    ensureHueMats(processH, processW);
+                    channels.get(0).copyTo(P.hCh);
+                    if (opt.bilateral) {
+                        const hBil = tm(new cv.Mat());
+                        cv.bilateralFilter(P.hCh, hBil, bd, bsc, bss);
+                        cv.Canny(hBil, P.edgeH, lo, hi, ap, opt.l2);
+                    } else {
+                        cv.GaussianBlur(P.hCh, P.blurredH, new cv.Size(bk,bk), sigma);
+                        cv.Canny(P.blurredH, P.edgeH, lo, hi, ap, opt.l2);
+                    }
+                }
+            } else {
+                P.edgeS.setTo(new cv.Scalar(0));
+            }
+
+            // ══ Combine Canny edges ══
+            if (opt.hue && P.edgeH) {
+                cv.bitwise_or(P.edgeGray, P.edgeH, P.combined);
+                cv.bitwise_or(P.combined, P.edgeS, P.finalEdge);
+            } else {
+                cv.bitwise_or(P.edgeGray, P.edgeS, P.finalEdge);
+            }
+
+            const tEdgeEnd = performance.now();
+            addPerf('edge', tEdgeEnd - tEdgeStart);
+
+            // ══ TEXTURE VARIANCE EDGE (NEW) ══
+            const tTexStart = performance.now();
+            if (opt.texture && opt.gray) {
+                computeTextureEdge(P, texBlock, texThresh);
+                cv.bitwise_or(P.finalEdge, P.texEdge, P.finalEdge);
+            }
+            const tTexEnd = performance.now();
+            addPerf('tex', tTexEnd - tTexStart);
+
+            // ══ MORPH_CLOSE ══
+            if (opt.close) {
+                const kern = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(ck,ck));
+                cv.morphologyEx(P.finalEdge, P.finalEdge, cv.MORPH_CLOSE, kern);
+                kern.delete();
+            }
+            if (opt.dilate) {
+                const kern = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(mk,mk));
+                cv.dilate(P.finalEdge, P.finalEdge, kern);
+                kern.delete();
+            }
+
+            // ══ Show edge ══
+            if (scale < 1.0) {
+                const ed = tm(new cv.Mat());
+                cv.resize(P.finalEdge, ed, new cv.Size(W,H), 0, 0, cv.INTER_NEAREST);
+                cv.imshow('cvEdge', ed);
+            } else {
+                cv.imshow('cvEdge', P.finalEdge);
+            }
+
+            // ══ BFS + compositing ══
+            const edgeArr = P.finalEdge.data;
+            const maskCvs = document.getElementById('cvMask');
+            const maskCtx = maskCvs.getContext('2d');
+            const resultCvs = document.getElementById('cvResult');
+            const resultCtx = resultCvs.getContext('2d');
+            resultCtx.putImageData(frameData, 0, 0);
+
+            let procSeedX = seedX, procSeedY = seedY;
+            if (scale < 1.0) {
+                procSeedX = Math.round(seedX * scale);
+                procSeedY = Math.round(seedY * scale);
+            }
+
+            if (procSeedX>=0 && procSeedY>=0 && procSeedX<processW && procSeedY<processH) {
+                const tFillStart = performance.now();
+                let fillMask = bfsFloodFill(edgeArr, processW, processH, procSeedX, procSeedY);
+                const tFillEnd = performance.now();
+                addPerf('fill', tFillEnd - tFillStart);
+
+                // ══ 마스크 팽창: 엣지 라인까지 채우기 ══
+                const maskDilateSize = gi('rMaskDilate');
+                if (maskDilateSize > 0) {
+                    P.maskMat.data.set(fillMask);
+                    const dk = maskDilateSize * 2 + 1;
+                    const kern = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(dk, dk));
+                    cv.dilate(P.maskMat, P.maskDilated, kern);
+                    kern.delete();
+                    fillMask = P.maskDilated.data;
+                }
+
+                const tCompStart = performance.now();
+
+                if (scale < 1.0) {
+                    const maskImg = maskCtx.createImageData(W,H);
+                    const md = maskImg.data;
+                    const resultImg = resultCtx.getImageData(0,0,W,H);
+                    const rd = resultImg.data;
+                    const a1=1-alpha, aR=fR*alpha, aG=fG*alpha, aB=fB*alpha;
+                    let filledCount = 0;
+                    for (let y=0;y<H;y++) {
+                        const srcY=Math.min(Math.floor(y*scale),processH-1);
+                        for (let x=0;x<W;x++) {
+                            const srcX=Math.min(Math.floor(x*scale),processW-1);
+                            const v=fillMask[srcY*processW+srcX];
+                            const p=(y*W+x)*4;
+                            md[p]=v;md[p+1]=v;md[p+2]=v;md[p+3]=255;
+                            if(v){filledCount++;rd[p]=rd[p]*a1+aR;rd[p+1]=rd[p+1]*a1+aG;rd[p+2]=rd[p+2]*a1+aB;}
+                        }
+                    }
+                    maskCtx.putImageData(maskImg,0,0);
+                    resultCtx.putImageData(resultImg,0,0);
+                    const pct=((filledCount/(W*H))*100).toFixed(1);
+                    document.getElementById('fillInfo').textContent=`채워진 면적: ${pct}% (${filledCount.toLocaleString()}px)`;
+                    document.getElementById('fillInfo').style.color='';
+                } else {
+                    let filledCount=0;
+                    const maskImg=maskCtx.createImageData(W,H);
+                    const md=maskImg.data;
+                    const resultImg=resultCtx.getImageData(0,0,W,H);
+                    const rd=resultImg.data;
+                    const a1=1-alpha, aR=fR*alpha, aG=fG*alpha, aB=fB*alpha;
+                    for(let i=0,len=W*H;i<len;i++){
+                        const v=fillMask[i], p=i*4;
+                        md[p]=v;md[p+1]=v;md[p+2]=v;md[p+3]=255;
+                        if(v){filledCount++;rd[p]=rd[p]*a1+aR;rd[p+1]=rd[p+1]*a1+aG;rd[p+2]=rd[p+2]*a1+aB;}
+                    }
+                    maskCtx.putImageData(maskImg,0,0);
+                    resultCtx.putImageData(resultImg,0,0);
+                    const pct=((filledCount/(W*H))*100).toFixed(1);
+                    document.getElementById('fillInfo').textContent=`채워진 면적: ${pct}% (${filledCount.toLocaleString()}px)`;
+                    document.getElementById('fillInfo').style.color='';
+                }
+
+                const tCompEnd = performance.now();
+                addPerf('comp', tCompEnd - tCompStart);
+            } else {
+                maskCtx.fillStyle='#000';
+                maskCtx.fillRect(0,0,W,H);
+                document.getElementById('fillInfo').textContent='채워진 면적: --';
+                document.getElementById('fillInfo').style.color='';
+            }
+
+        } catch(e) {
+            console.error('process error:', e);
+        } finally {
+            for(let i=tempMats.length-1;i>=0;i--){
+                try{
+                    if(tempMats[i] instanceof cv.MatVector)tempMats[i].delete();
+                    else if(tempMats[i]&&tempMats[i].delete)tempMats[i].delete();
+                }catch(_){}
+            }
+        }
+
+        fC++;
+        const now=performance.now();
+        if(now-fT>=1000){document.getElementById('fpsEl').textContent=Math.round(fC*1000/(now-fT))+' fps';fC=0;fT=now;}
+        if(frameCount%15===0){
+            document.getElementById('pEdge').textContent=getPerf('edge');
+            document.getElementById('pTex').textContent=getPerf('tex');
+            document.getElementById('pFill').textContent=getPerf('fill');
+            document.getElementById('pComp').textContent=getPerf('comp');
+            document.getElementById('pTotal').textContent=(performance.now()-tFrameStart).toFixed(1)+'ms';
+        }
+        raf=requestAnimationFrame(loop);
+    }
+
+    /* ═══════════════════════════════════════
+       Load OpenCV.js
+       ═══════════════════════════════════════ */
+    (function(){
+        const s=document.createElement('script');
+        s.src='https://docs.opencv.org/4.9.0/opencv.js';
+        s.async=true;
+        s.onload=()=>{
+            const t=setInterval(()=>{
+                try{if(typeof cv!=='undefined'&&cv.Mat){clearInterval(t);document.getElementById('ov').classList.add('gone');console.log('OpenCV.js loaded ✓');}}catch(_){}
+            },100);
+            setTimeout(()=>{clearInterval(t);document.getElementById('ov').classList.add('gone');},20000);
+        };
+        document.head.appendChild(s);
+    })();
+</script>
+</body>
+</html>
