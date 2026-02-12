@@ -23,8 +23,9 @@
         .camera-area .placeholder p{font-size:13px;color:#666;font-weight:400}
         .seed-indicator{position:absolute;z-index:10;width:24px;height:24px;border:2.5px solid #fff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.5);display:none}
         .seed-indicator::after{content:'';position:absolute;inset:4px;border:1px solid rgba(255,255,255,.5);border-radius:50%}
-        .top-bar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0%,transparent 100%)}
-        .top-bar .title{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.5px;color:rgba(255,255,255,.8)}
+        .top-bar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;}
+        .top-bar .title{display:flex;align-items:center;height:20px}
+        .top-bar .title img{height:15px;}
         .top-bar .color-info{font-family:'Pretendard',sans-serif;font-size:11px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:8px}
         .top-bar .color-info .ci-chip{width:14px;height:14px;border-radius:4px;border:1px solid rgba(255,255,255,.3)}
         .top-bar .color-info .ci-name{font-weight:500}
@@ -32,17 +33,18 @@
         .bottom-panel{background:#111;border-top:1px solid #222;flex-shrink:0;display:flex;flex-direction:column;position:relative;z-index:50}
         .cat-tabs{display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #222;padding:0 8px}
         .cat-tabs::-webkit-scrollbar{display:none}
-        .cat-tab{flex-shrink:0;padding:10px 14px;font-size:11px;font-weight:500;color:#666;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+        .cat-tab{flex-shrink:0;padding:15px 14px;font-size:13px;font-weight:500;color:#666;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
         .cat-tab.active{color:#fff;border-bottom-color:#fff}.cat-tab:hover{color:#aaa}
-        .color-row{display:flex;overflow-x:auto;scrollbar-width:none;padding:12px 12px 6px;gap:8px;align-items:flex-start}
+        .color-row{display:flex;overflow-x:auto;scrollbar-width:none;padding:12px 12px 6px;gap:10px;align-items:flex-start}
         .color-row::-webkit-scrollbar{display:none}
         .swatch{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:transform .15s}
         .swatch:active{transform:scale(.92)}
-        .swatch .chip{width:44px;height:44px;border-radius:10px;border:2px solid transparent;transition:border-color .2s,box-shadow .2s;position:relative}
+        .swatch .chip{width:60px;height:60px;border-radius:10px;border:2px solid transparent;transition:border-color .2s,box-shadow .2s;position:relative}
         .swatch.active .chip{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.3)}
         .swatch .chip::after{content:'';position:absolute;inset:0;border-radius:8px;border:1px solid rgba(255,255,255,.08)}
-        .swatch .name{font-size:8px;color:#777;font-weight:400;text-align:center;max-width:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
-        .swatch .code{font-family:'JetBrains Mono',monospace;font-size:7px;color:#555}
+        .swatch .name{font-size:10px;color:#777;font-weight:400;text-align:center;max-width:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+        .swatch .code{position:absolute;bottom:2px;left:0;right:0;font-family:'JetBrains Mono',monospace;font-size:10px;text-align:center;color:rgba(255,255,255,.85);text-shadow:0 0 3px rgba(0,0,0,.8);pointer-events:none}
+        .swatch.light-color .code{color:rgba(0,0,0,.6);text-shadow:0 0 3px rgba(255,255,255,.8)}
         .action-bar{display:flex;align-items:center;justify-content:center;padding:8px 16px 20px;gap:16px}
         .action-bar .cam-btn{width:56px;height:56px;border-radius:50%;border:3px solid #fff;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative}
         .action-bar .cam-btn.recording{border-color:#ff4444;background:rgba(255,68,68,.15)}
@@ -61,7 +63,7 @@
 <div class="app">
     <div class="camera-area" id="cameraArea">
         <div class="top-bar">
-            <span class="title">WALL PAINT AR</span>
+            <span class="title"><img src="jevisco.png" alt="JEVISCO"></span>
             <span class="color-info" id="colorInfo"></span>
         </div>
         <video id="vid" autoplay playsinline muted></video>
@@ -86,13 +88,16 @@
 </div>
 <script>
     const JEVISCO_COLORS = {
-        "화이트 White": [
-            {name:"스노우 화이트",code:"JC-0001",hex:"#FAFAFA"},{name:"밀크 화이트",code:"JC-0002",hex:"#F5F0E8"},
-            {name:"아이보리 화이트",code:"JC-0003",hex:"#F2EDE0"},{name:"크림 화이트",code:"JC-0004",hex:"#F8F1E4"},
-            {name:"라이트 린넨",code:"JC-0005",hex:"#F0EBE0"},{name:"펄 화이트",code:"JC-0006",hex:"#F0EEE9"},
-            {name:"소프트 화이트",code:"JC-0007",hex:"#EDEBE6"},{name:"문라이트",code:"JC-0008",hex:"#F5F3ED"},
-            {name:"코튼 화이트",code:"JC-0009",hex:"#EDE8DC"},{name:"클라우드 화이트",code:"JC-0010",hex:"#E8E4DB"},
-            {name:"실크 화이트",code:"JC-0011",hex:"#E5DFD3"},{name:"페이퍼 화이트",code:"JC-0012",hex:"#F7F6F2"},
+        "컬러 Color": [
+            {name:"코랄 레드",code:"JC-4001",hex:"#E05040"},{name:"버밀리온",code:"JC-4002",hex:"#D83020"},
+            {name:"토마토 레드",code:"JC-4003",hex:"#E04030"},{name:"선셋 오렌지",code:"JC-4004",hex:"#E87830"},
+            {name:"탠저린",code:"JC-4005",hex:"#F09028"},{name:"머스타드",code:"JC-4006",hex:"#D0A020"},
+            {name:"선플라워",code:"JC-4007",hex:"#F0C020"},{name:"레몬 옐로",code:"JC-4008",hex:"#F0D830"},
+            {name:"라임 그린",code:"JC-4009",hex:"#90C830"},{name:"에메랄드",code:"JC-4010",hex:"#28A870"},
+            {name:"터쿼이즈",code:"JC-4011",hex:"#20A8A0"},{name:"스카이 블루",code:"JC-4012",hex:"#4098D8"},
+            {name:"로얄 블루",code:"JC-4013",hex:"#2868C0"},{name:"울트라마린",code:"JC-4014",hex:"#3040B0"},
+            {name:"바이올렛",code:"JC-4015",hex:"#7030A0"},{name:"매젠타",code:"JC-4016",hex:"#C02880"},
+            {name:"핫 핑크",code:"JC-4017",hex:"#E03878"},{name:"클래식 레드",code:"JC-4018",hex:"#C82020"},
         ],
         "틴트 Tint": [
             {name:"피치 블러쉬",code:"JC-1001",hex:"#F5D6C8"},{name:"살몬 핑크",code:"JC-1002",hex:"#F2B8A2"},
@@ -114,25 +119,6 @@
             {name:"더스티 블루",code:"JC-2013",hex:"#7C98B0"},{name:"스모키 블루",code:"JC-2014",hex:"#8898A8"},
             {name:"소프트 인디고",code:"JC-2015",hex:"#7880A0"},{name:"라벤더 그레이",code:"JC-2016",hex:"#9890A8"},
         ],
-        "그레이 Gray": [
-            {name:"웜 그레이 1",code:"JC-3001",hex:"#D8D4CC"},{name:"웜 그레이 3",code:"JC-3002",hex:"#C0BAB0"},
-            {name:"웜 그레이 5",code:"JC-3003",hex:"#A8A098"},{name:"쿨 그레이 1",code:"JC-3004",hex:"#D0D0D4"},
-            {name:"쿨 그레이 3",code:"JC-3005",hex:"#B4B4BC"},{name:"쿨 그레이 5",code:"JC-3006",hex:"#98989C"},
-            {name:"스톤 그레이",code:"JC-3007",hex:"#9C9890"},{name:"차콜 라이트",code:"JC-3008",hex:"#787878"},
-            {name:"그레이쥬",code:"JC-3009",hex:"#B8B0A8"},{name:"퓨터",code:"JC-3010",hex:"#8C8880"},
-            {name:"실버 폭스",code:"JC-3011",hex:"#A8A4A0"},{name:"콘크리트",code:"JC-3012",hex:"#949088"},
-        ],
-        "컬러 Color": [
-            {name:"코랄 레드",code:"JC-4001",hex:"#E05040"},{name:"버밀리온",code:"JC-4002",hex:"#D83020"},
-            {name:"토마토 레드",code:"JC-4003",hex:"#E04030"},{name:"선셋 오렌지",code:"JC-4004",hex:"#E87830"},
-            {name:"탠저린",code:"JC-4005",hex:"#F09028"},{name:"머스타드",code:"JC-4006",hex:"#D0A020"},
-            {name:"선플라워",code:"JC-4007",hex:"#F0C020"},{name:"레몬 옐로",code:"JC-4008",hex:"#F0D830"},
-            {name:"라임 그린",code:"JC-4009",hex:"#90C830"},{name:"에메랄드",code:"JC-4010",hex:"#28A870"},
-            {name:"터쿼이즈",code:"JC-4011",hex:"#20A8A0"},{name:"스카이 블루",code:"JC-4012",hex:"#4098D8"},
-            {name:"로얄 블루",code:"JC-4013",hex:"#2868C0"},{name:"울트라마린",code:"JC-4014",hex:"#3040B0"},
-            {name:"바이올렛",code:"JC-4015",hex:"#7030A0"},{name:"매젠타",code:"JC-4016",hex:"#C02880"},
-            {name:"핫 핑크",code:"JC-4017",hex:"#E03878"},{name:"클래식 레드",code:"JC-4018",hex:"#C82020"},
-        ],
         "쉐이드 Shade": [
             {name:"버건디",code:"JC-5001",hex:"#701828"},{name:"와인",code:"JC-5002",hex:"#802030"},
             {name:"마호가니",code:"JC-5003",hex:"#6C3030"},{name:"초콜릿",code:"JC-5004",hex:"#5C3820"},
@@ -141,6 +127,22 @@
             {name:"딥 티일",code:"JC-5009",hex:"#1C5860"},{name:"네이비",code:"JC-5010",hex:"#1C2848"},
             {name:"미드나잇 블루",code:"JC-5011",hex:"#182040"},{name:"딥 퍼플",code:"JC-5012",hex:"#381858"},
             {name:"포레스트",code:"JC-5013",hex:"#2C4830"},{name:"인디고",code:"JC-5014",hex:"#283068"},
+        ],
+        "화이트 White": [
+            {name:"스노우 화이트",code:"JC-0001",hex:"#FAFAFA"},{name:"밀크 화이트",code:"JC-0002",hex:"#F5F0E8"},
+            {name:"아이보리 화이트",code:"JC-0003",hex:"#F2EDE0"},{name:"크림 화이트",code:"JC-0004",hex:"#F8F1E4"},
+            {name:"라이트 린넨",code:"JC-0005",hex:"#F0EBE0"},{name:"펄 화이트",code:"JC-0006",hex:"#F0EEE9"},
+            {name:"소프트 화이트",code:"JC-0007",hex:"#EDEBE6"},{name:"문라이트",code:"JC-0008",hex:"#F5F3ED"},
+            {name:"코튼 화이트",code:"JC-0009",hex:"#EDE8DC"},{name:"클라우드 화이트",code:"JC-0010",hex:"#E8E4DB"},
+            {name:"실크 화이트",code:"JC-0011",hex:"#E5DFD3"},{name:"페이퍼 화이트",code:"JC-0012",hex:"#F7F6F2"},
+        ],
+        "그레이 Gray": [
+            {name:"웜 그레이 1",code:"JC-3001",hex:"#D8D4CC"},{name:"웜 그레이 3",code:"JC-3002",hex:"#C0BAB0"},
+            {name:"웜 그레이 5",code:"JC-3003",hex:"#A8A098"},{name:"쿨 그레이 1",code:"JC-3004",hex:"#D0D0D4"},
+            {name:"쿨 그레이 3",code:"JC-3005",hex:"#B4B4BC"},{name:"쿨 그레이 5",code:"JC-3006",hex:"#98989C"},
+            {name:"스톤 그레이",code:"JC-3007",hex:"#9C9890"},{name:"차콜 라이트",code:"JC-3008",hex:"#787878"},
+            {name:"그레이쥬",code:"JC-3009",hex:"#B8B0A8"},{name:"퓨터",code:"JC-3010",hex:"#8C8880"},
+            {name:"실버 폭스",code:"JC-3011",hex:"#A8A4A0"},{name:"콘크리트",code:"JC-3012",hex:"#949088"},
         ],
         "블랙 Black": [
             {name:"소프트 블랙",code:"JC-6001",hex:"#303030"},{name:"차콜",code:"JC-6002",hex:"#383838"},
@@ -165,7 +167,8 @@
 
     /* ═══════════════════════════════════════ UI ═══════════════════════════════════════ */
     function renderCategoryTabs(){const t=document.getElementById('catTabs');t.innerHTML='';Object.keys(JEVISCO_COLORS).forEach(c=>{const d=document.createElement('div');d.className='cat-tab'+(c===currentCategory?' active':'');d.textContent=c.split(' ')[0];d.onclick=()=>{currentCategory=c;renderCategoryTabs();renderColors();};t.appendChild(d);})}
-    function renderColors(){const r=document.getElementById('colorRow');r.innerHTML='';(JEVISCO_COLORS[currentCategory]||[]).forEach(c=>{const s=document.createElement('div');s.className='swatch'+(c.hex===currentColor.hex?' active':'');s.innerHTML=`<div class="chip" style="background:${c.hex}"></div><span class="name">${c.name}</span><span class="code">${c.code}</span>`;s.onclick=()=>selectColor(c);r.appendChild(s);})}
+    function isLightColor(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return(r*299+g*587+b*114)/1000>160;}
+    function renderColors(){const r=document.getElementById('colorRow');r.innerHTML='';(JEVISCO_COLORS[currentCategory]||[]).forEach(c=>{const s=document.createElement('div');s.className='swatch'+(c.hex===currentColor.hex?' active':'')+(isLightColor(c.hex)?' light-color':'');s.innerHTML=`<div class="chip" style="background:${c.hex}"><span class="code">${c.code}</span></div><span class="name">${c.name}</span>`;s.onclick=()=>selectColor(c);r.appendChild(s);})}
     function selectColor(c){currentColor.hex=c.hex;currentColor.name=c.name;currentColor.code=c.code;currentColor.r=parseInt(c.hex.slice(1,3),16);currentColor.g=parseInt(c.hex.slice(3,5),16);currentColor.b=parseInt(c.hex.slice(5,7),16);renderColors();updateColorInfo();document.getElementById('seedDot').style.borderColor=c.hex;}
     function updateColorInfo(){const el=document.getElementById('colorInfo');if(currentColor.name){el.innerHTML=`<span class="ci-chip" style="background:${currentColor.hex}"></span><span class="ci-name">${currentColor.name}</span><span class="ci-code">${currentColor.code}</span>`;}else{el.innerHTML='';}}
     renderCategoryTabs();renderColors();
